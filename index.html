@@ -25,10 +25,12 @@ h1{font-size:22px;font-weight:700;}
 .tab-desc{font-size:11px;margin-top:2px;}
 .tab.active.aladdin{background:var(--amber-dim);color:var(--amber);}
 .tab.active.phone{background:var(--blue-dim);color:var(--blue);}
-.avg-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.avg-btn{color:var(--blue);border-color:var(--blue-dim);}
-.avg-btn.on{background:var(--blue);color:var(--bg);border-color:var(--blue);}
-.avg-desc{font-size:12px;color:var(--muted);}
+/* 平均ボタン：「電話注文/平均」タブの真下（右半分）に置く */
+.avg-row{width:50%;margin-left:auto;margin-top:-6px;display:flex;flex-direction:column;gap:4px;}
+.avg-btn{width:100%;font-size:15px;font-weight:700;padding:10px;color:var(--blue);background:var(--panel-2);border:2px solid var(--blue);}
+.avg-btn:hover{background:var(--blue-dim);border-color:var(--blue);}
+.avg-btn.on{background:var(--blue);color:var(--bg);}
+.avg-desc{font-size:11px;color:var(--muted);text-align:center;}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;}
 .panel-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
 .foot-note{font-size:11px;color:var(--muted);line-height:1.7;margin-top:10px;}
@@ -117,7 +119,7 @@ tr.row-line td{border-bottom:1px solid var(--line);}
     <button class="tab phone" id="tabPhone">電話注文/平均<div class="tab-desc">ピッキングしやすい入れ方・平均</div></button>
   </div>
   <div class="avg-row" id="avgRow" style="display:none;">
-    <button class="btn avg-btn" id="avgBtn">⚖ 平均</button>
+    <button class="btn avg-btn" id="avgBtn">⚖ 平均で分ける（OFF）</button>
     <span class="avg-desc" id="avgDesc">押すと、玉数の多い商品から各ケースにできるだけ均等に分けます</span>
   </div>
 
@@ -184,7 +186,7 @@ tr.row-line td{border-bottom:1px solid var(--line);}
     </div>
     <div class="foot-note">10の倍数の玉数は5玉・10玉どちらの包装でも適用可能。5の倍数のみ（25玉など）は5玉包装専用。</div>
   </div>
-  <div class="foot-note" style="text-align:center;margin-top:0">版 2026-10-29（同じ重量に #行番号）</div>
+  <div class="foot-note" style="text-align:center;margin-top:0">版 2026-10-29（平均ボタン移動・入力順表示）</div>
 </div>
 
 <div class="modal-bg" id="modalBg">
@@ -260,7 +262,9 @@ document.getElementById('tabAladdin').onclick=()=>setMode('aladdin');
 document.getElementById('tabPhone').onclick=()=>setMode('phone');
 document.getElementById('avgBtn').onclick=()=>{
   avgMode=!avgMode;
-  document.getElementById('avgBtn').classList.toggle('on',avgMode);
+  const btn=document.getElementById('avgBtn');
+  btn.classList.toggle('on',avgMode);
+  btn.textContent=avgMode?'⚖ 平均で分ける（ON）':'⚖ 平均で分ける（OFF）';
   document.getElementById('avgDesc').textContent=avgMode
     ?'平均で分けています（もう一度押すと通常の電話注文に戻ります）'
     :'押すと、玉数の多い商品から各ケースにできるだけ均等に分けます';
@@ -720,7 +724,8 @@ function showResult(data,currentMode){
   data.bins.forEach((b,i)=>{
     const over=b.total>CASE_SIZE;
     const div=document.createElement('div');div.className='result-card'+(over?' over':'');
-    const pairs=b.items.slice().sort((x,y)=>x.weight-y.weight||x.row-y.row)
+    // 電話注文（通常・平均）は入力した行の順に並べる（保存組合せのケースも同じ）。ECは重量順のまま
+    const pairs=b.items.slice().sort(currentMode==='aladdin'?(x,y)=>x.weight-y.weight||x.row-y.row:(x,y)=>x.row-y.row)
       .map(p=>`${p.weight}g×${p.count}${data.dupW.has(p.weight)?`<span class="row-no">#${p.row}</span>`:''}`).join(' / ');
     const comboTag=b.combo?'<span class="r-tag" style="color:var(--green);border:1px solid var(--green-dim)">保存組合せ</span>':'';
     div.innerHTML=`<div class="r-head"><span class="r-num">${circled(i+1)}</span><span class="r-tag ${tagClass}">${tagLabel}</span>${comboTag}<span class="r-total${over?' over':''}">${b.total.toLocaleString()}g${over?' (14000g超)':''}</span></div><div class="r-pairs">${pairs||'なし'}</div>`;
