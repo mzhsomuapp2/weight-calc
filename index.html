@@ -25,6 +25,10 @@ h1{font-size:22px;font-weight:700;}
 .tab-desc{font-size:11px;margin-top:2px;}
 .tab.active.aladdin{background:var(--amber-dim);color:var(--amber);}
 .tab.active.phone{background:var(--blue-dim);color:var(--blue);}
+.avg-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.avg-btn{color:var(--blue);border-color:var(--blue-dim);}
+.avg-btn.on{background:var(--blue);color:var(--bg);border-color:var(--blue);}
+.avg-desc{font-size:12px;color:var(--muted);}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;}
 .panel-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
 .foot-note{font-size:11px;color:var(--muted);line-height:1.7;margin-top:10px;}
@@ -84,6 +88,8 @@ tr.row-line td{border-bottom:1px solid var(--line);}
 .add-lbl{font-size:14px;font-weight:700;color:var(--green);}
 .add-chip{font-family:monospace;font-size:17px;font-weight:700;color:var(--bg);background:var(--green);padding:3px 10px;border-radius:6px;}
 .sub-remain.add-row{display:inline-block;margin-top:4px;font-size:14px;font-weight:700;color:var(--bg);background:var(--green);padding:2px 8px;border-radius:5px;white-space:nowrap;}
+.row-no{font-size:11px;font-weight:600;color:var(--muted);margin-left:3px;}
+.add-chip .row-no{color:var(--bg);opacity:.75;}
 .add-note{flex-basis:100%;margin-top:6px;font-size:17px;font-weight:800;color:#FFFFFF;}
 .combo-scroll{max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding-right:4px;}
 .combo-scroll::-webkit-scrollbar{width:7px;}
@@ -108,7 +114,11 @@ tr.row-line td{border-bottom:1px solid var(--line);}
 
   <div class="tabs">
     <button class="tab aladdin active" id="tabAladdin">アラジンEC<div class="tab-desc">玉数の多い順に詰める</div></button>
-    <button class="tab phone" id="tabPhone">電話注文<div class="tab-desc">ピッキングしやすい入れ方</div></button>
+    <button class="tab phone" id="tabPhone">電話注文/平均<div class="tab-desc">ピッキングしやすい入れ方・平均</div></button>
+  </div>
+  <div class="avg-row" id="avgRow" style="display:none;">
+    <button class="btn avg-btn" id="avgBtn">⚖ 平均</button>
+    <span class="avg-desc" id="avgDesc">押すと、玉数の多い商品から各ケースにできるだけ均等に分けます</span>
   </div>
 
   <div class="panel">
@@ -174,7 +184,7 @@ tr.row-line td{border-bottom:1px solid var(--line);}
     </div>
     <div class="foot-note">10の倍数の玉数は5玉・10玉どちらの包装でも適用可能。5の倍数のみ（25玉など）は5玉包装専用。</div>
   </div>
-  <div class="foot-note" style="text-align:center;margin-top:0">版 2026-10-29（組合せはスプレッドシートで共有）</div>
+  <div class="foot-note" style="text-align:center;margin-top:0">版 2026-10-29（同じ重量に #行番号）</div>
 </div>
 
 <div class="modal-bg" id="modalBg">
@@ -196,6 +206,7 @@ const CIRCLED=['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
 const circled=n=>CIRCLED[n-1]||`(${n})`;
 
 let mode='aladdin';
+let avgMode=false; // 電話注文モードで「平均」ボタンが押されているか
 let state={cases:1,rows:[newRow(),newRow()],combos:[]};
 let autoCalcTimer=null;
 
@@ -241,11 +252,20 @@ function setMode(m){
   const phoneOnly=m==='phone';
   document.getElementById('comboPanel').style.display=phoneOnly?'':'none';
   document.getElementById('saveComboWrap').style.display=phoneOnly?'':'none';
+  document.getElementById('avgRow').style.display=phoneOnly?'':'none';
   if(phoneOnly&&typeof refreshCombos==='function'&&state.combos)refreshCombos(true);
   doCalc();
 }
 document.getElementById('tabAladdin').onclick=()=>setMode('aladdin');
 document.getElementById('tabPhone').onclick=()=>setMode('phone');
+document.getElementById('avgBtn').onclick=()=>{
+  avgMode=!avgMode;
+  document.getElementById('avgBtn').classList.toggle('on',avgMode);
+  document.getElementById('avgDesc').textContent=avgMode
+    ?'平均で分けています（もう一度押すと通常の電話注文に戻ります）'
+    :'押すと、玉数の多い商品から各ケースにできるだけ均等に分けます';
+  doCalc();
+};
 
 // ── Gauge ──────────────────────────────────────────────────────
 function renderGauge(){
@@ -523,6 +543,70 @@ function solvePhone(items,caseCount,cap,combos){
   return packDP(items,caseCount,cap);
 }
 
+// ── 電話注文／平均：玉数の多い商品から順に、各ケースへできるだけ均等に分ける ──
+// 1商品ずつ「包装数÷ケース数」で配り、割り切れない分は空きの多いケースへ（同じなら前から）。
+// 入らない分は空きのあるケースへ1包装ずつ回す。それでも入らなければ最後のケースに入れて NG。
+function packAvg(items,caseCount,cap){
+  const bins=newBins(caseCount);let ok=true;
+  const free=b=>cap-b.total;
+  const byFree=()=>bins.map((b,i)=>i).sort((a,c)=>free(bins[c])-free(bins[a])||a-c);
+  for(const it of priorityOrder(items)){
+    const u=it.unit,w=it.weight;
+    const packs=Math.floor(it.count/u),r=it.count%u;
+    const base=Math.floor(packs/caseCount),extra=packs%caseCount;
+    const want=new Array(caseCount).fill(base*u);
+    byFree().slice(0,extra).forEach(i=>{want[i]+=u;});
+    let left=it.count;
+    bins.forEach((b,i)=>{const t=Math.min(want[i],floorUnit(free(b),w,u));if(t>0){binPut(b,it,t);left-=t;}});
+    // 入りきらなかった包装を、空きの多いケースへ1包装ずつ
+    while(left-r>=u){
+      const i=byFree().find(j=>free(bins[j])>=w*u);
+      if(i===undefined)break;
+      binPut(bins[i],it,u);left-=u;
+    }
+    // 単位で割り切れない端数
+    if(left>0){
+      const i=byFree().find(j=>free(bins[j])>=w*left);
+      if(i!==undefined){binPut(bins[i],it,left);left=0;}
+    }
+    if(left>0){binPut(bins[bins.length-1],it,left);ok=false;}
+  }
+  return{bins,ok};
+}
+// 平均の振り分けに近い保存組合せがあれば、そのケースは組合せを使う
+// 「近い」＝平均で分けたときの1ケース目と同じ商品の組み合わせで、各玉数の差が1包装以内
+function solveAvg(items,caseCount,cap,combos){
+  const usable=(combos||[]).filter(c=>c.pairs.reduce((s,p)=>s+p.weight*p.count,0)<=cap);
+  let pool=cloneItems(items).filter(x=>x.count>0);
+  const comboBins=[];
+  for(let n=caseCount;n>1;n--){
+    const ref=packAvg(pool,n,cap);
+    if(!ref.ok)break;
+    const tgt=ref.bins[0].items;
+    let best=null;
+    for(const c of usable){
+      if(c.pairs.length!==tgt.length)continue;
+      const use=comboApply(c,pool);if(!use)continue;
+      let dev=0,near=true;
+      for(const u of use){
+        const t=tgt.find(x=>x.key===u.it.key);
+        if(!t||Math.abs(t.count-u.count)>u.it.unit){near=false;break;}
+        dev+=Math.abs(t.count-u.count)*u.it.weight;
+      }
+      if(!near||(best&&dev>=best.dev))continue;
+      const next=cloneItems(pool);
+      use.forEach(u=>{next.find(x=>x.key===u.it.key).count-=u.count;});
+      if(!packAvg(next.filter(x=>x.count>0),n-1,cap).ok)continue;
+      best={use,next,dev};
+    }
+    if(!best)break;
+    const bin={items:[],total:0,combo:true};best.use.forEach(u=>binPut(bin,u.it,u.count));
+    comboBins.push(bin);pool=best.next.filter(x=>x.count>0);
+  }
+  const rest=packAvg(pool,caseCount-comboBins.length,cap);
+  return{bins:[...comboBins,...rest.bins],ok:rest.ok};
+}
+
 // ── 追加チェック（EC・電話共通）──
 // 全ケースの合計空き容量に、優先順で1包装ずつ足してみて、
 // 足した後にルール通り詰め直しても全部収まる場合だけ追加する。入らなくなるまで繰り返す。
@@ -542,13 +626,15 @@ function tryAdditions(items,caseCount,cap,packFn){
   return{items:cur,added};
 }
 
-function calculate(rows,caseCount,cap,mode,combos){
+function calculate(rows,caseCount,cap,mode,combos,avg){
   const items=toItems(rows);
-  const packFn=mode==='aladdin'?packEC:packDP;
+  const packFn=mode==='aladdin'?packEC:avg?packAvg:packDP;
   const base=packFn(items,caseCount,cap);
   let finalItems=items,added={};
   if(base.ok){const r=tryAdditions(items,caseCount,cap,packFn);finalItems=r.items;added=r.added;}
-  const res=mode==='aladdin'?packEC(finalItems,caseCount,cap):solvePhone(finalItems,caseCount,cap,combos);
+  const res=mode==='aladdin'?packEC(finalItems,caseCount,cap)
+    :avg?solveAvg(finalItems,caseCount,cap,combos)
+    :solvePhone(finalItems,caseCount,cap,combos);
   return{...res,added,items:finalItems};
 }
 
@@ -584,15 +670,18 @@ function doCalc(){
   const rows=state.rows.map((r,i)=>({row:i+1,weight:num(r.weight),count:num(r.count),unit:r.unit||5}))
     .filter(r=>r.weight>0&&r.count>0);
   if(!rows.length)return;
-  const r=calculate(rows,state.cases,CASE_SIZE,mode,state.combos);
+  const r=calculate(rows,state.cases,CASE_SIZE,mode,state.combos,avgMode);
+  // 同じ重量の商品が複数あるときだけ、小さく行番号（#n）を付けて区別する
+  const dupW=new Set();const seen={};
+  r.items.forEach(x=>{if(seen[x.weight])dupW.add(x.weight);seen[x.weight]=1;});
   const addList=Object.entries(r.added).map(([k,v])=>{
-    const it=r.items.find(x=>x.key===k);return `${it.weight}g×${v}玉`;
+    const it=r.items.find(x=>x.key===k);return `${it.weight}g×${v}玉${dupW.has(it.weight)?`<span class="row-no">#${it.row}</span>`:''}`;
   });
   // 入力行の「＋○玉 → △玉」表示用（行番号→追加玉数）
   state.added={};
   Object.entries(r.added).forEach(([k,v])=>{const it=r.items.find(x=>x.key===k);state.added[it.row-1]=v;});
   updateRowRemains();
-  showResult({bins:r.bins,ok:r.ok,addList,filled},mode);
+  showResult({bins:r.bins,ok:r.ok,addList,filled,dupW},mode);
 }
 // 入力が変わったら結果と追加表示を消す
 function hideResult(){
@@ -606,7 +695,7 @@ function showResult(data,currentMode){
   const banner=document.getElementById('resultBanner');
   const list=document.getElementById('resultList');
   const tagClass=currentMode==='aladdin'?'aladdin':'phone';
-  const tagLabel=currentMode==='aladdin'?'アラジンEC':'電話注文';
+  const tagLabel=currentMode==='aladdin'?'アラジンEC':avgMode?'電話注文（平均）':'電話注文';
   title.textContent=tagLabel+' 振り分け結果';
   list.innerHTML='';
   const msgs=[];let warn=false;
@@ -632,7 +721,7 @@ function showResult(data,currentMode){
     const over=b.total>CASE_SIZE;
     const div=document.createElement('div');div.className='result-card'+(over?' over':'');
     const pairs=b.items.slice().sort((x,y)=>x.weight-y.weight||x.row-y.row)
-      .map(p=>`${p.weight}g×${p.count}`).join(' / ');
+      .map(p=>`${p.weight}g×${p.count}${data.dupW.has(p.weight)?`<span class="row-no">#${p.row}</span>`:''}`).join(' / ');
     const comboTag=b.combo?'<span class="r-tag" style="color:var(--green);border:1px solid var(--green-dim)">保存組合せ</span>':'';
     div.innerHTML=`<div class="r-head"><span class="r-num">${circled(i+1)}</span><span class="r-tag ${tagClass}">${tagLabel}</span>${comboTag}<span class="r-total${over?' over':''}">${b.total.toLocaleString()}g${over?' (14000g超)':''}</span></div><div class="r-pairs">${pairs||'なし'}</div>`;
     list.appendChild(div);
