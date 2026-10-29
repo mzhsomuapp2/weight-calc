@@ -186,7 +186,7 @@ tr.row-line td{border-bottom:1px solid var(--line);}
     </div>
     <div class="foot-note">10の倍数の玉数は5玉・10玉どちらの包装でも適用可能。5の倍数のみ（25玉など）は5玉包装専用。</div>
   </div>
-  <div class="foot-note" style="text-align:center;margin-top:0">版 2026-10-29（平均ボタン移動・入力順表示）</div>
+  <div class="foot-note" style="text-align:center;margin-top:0">版 2026-10-29（EC も入力順表示）</div>
 </div>
 
 <div class="modal-bg" id="modalBg">
@@ -724,8 +724,8 @@ function showResult(data,currentMode){
   data.bins.forEach((b,i)=>{
     const over=b.total>CASE_SIZE;
     const div=document.createElement('div');div.className='result-card'+(over?' over':'');
-    // 電話注文（通常・平均）は入力した行の順に並べる（保存組合せのケースも同じ）。ECは重量順のまま
-    const pairs=b.items.slice().sort(currentMode==='aladdin'?(x,y)=>x.weight-y.weight||x.row-y.row:(x,y)=>x.row-y.row)
+    // 表示は全モード入力した行の順（保存組合せのケースも同じ）。詰め方には影響しない
+    const pairs=b.items.slice().sort((x,y)=>x.row-y.row)
       .map(p=>`${p.weight}g×${p.count}${data.dupW.has(p.weight)?`<span class="row-no">#${p.row}</span>`:''}`).join(' / ');
     const comboTag=b.combo?'<span class="r-tag" style="color:var(--green);border:1px solid var(--green-dim)">保存組合せ</span>':'';
     div.innerHTML=`<div class="r-head"><span class="r-num">${circled(i+1)}</span><span class="r-tag ${tagClass}">${tagLabel}</span>${comboTag}<span class="r-total${over?' over':''}">${b.total.toLocaleString()}g${over?' (14000g超)':''}</span></div><div class="r-pairs">${pairs||'なし'}</div>`;
