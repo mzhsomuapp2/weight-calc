@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>重量計算 / ケース詰め計算機</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧮</text></svg>">
+<style>
+:root{
+  --bg:#15171A;--panel:#1F2226;--panel-2:#262A2F;--line:#34383D;
+  --text:#EDEAE2;--muted:#8E9296;
+  --amber:#FFB020;--amber-dim:#7A5A1E;
+  --green:#3DDC84;--green-dim:#1F4A35;
+  --blue:#6cb8f5;--blue-dim:#1e3a55;
+  --red:#FF5C5C;--red-dim:#4A2222;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:system-ui,'Hiragino Sans',sans-serif;min-height:100vh;padding:14px;}
+.app{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:12px;}
+h1{font-size:22px;font-weight:700;}
+.eyebrow{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+.tabs{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+.tab{flex:1;padding:12px 10px;text-align:center;font-size:14px;font-weight:700;cursor:pointer;background:var(--panel-2);color:var(--muted);border:none;}
+.tab:first-child{border-right:1px solid var(--line);}
+.tab-desc{font-size:11px;margin-top:2px;}
+.tab.active.aladdin{background:var(--amber-dim);color:var(--amber);}
+.tab.active.phone{background:var(--blue-dim);color:var(--blue);}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;}
+.panel-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+.foot-note{font-size:11px;color:var(--muted);line-height:1.7;margin-top:10px;}
+.gauge-row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;}
+.case-wrap{display:flex;flex-direction:column;gap:6px;}
+.case-wrap label{font-size:12px;color:var(--muted);}
+.case-stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.case-stepper button{background:var(--panel-2);border:none;color:var(--text);width:36px;height:40px;font-size:18px;cursor:pointer;}
+.case-stepper button:hover{background:var(--line);}
+.case-num{width:52px;text-align:center;font-family:monospace;font-size:18px;background:var(--bg);height:40px;line-height:40px;color:var(--amber);}
+.target-lbl{font-size:12px;color:var(--muted);}
+.target-lbl b{color:var(--text);font-family:monospace;}
+.gauge-wrap{flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px;}
+.gauge-lbls{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);}
+.gauge-val{font-family:monospace;font-size:15px;}
+.gauge-track{height:18px;border-radius:9px;background:var(--bg);border:1px solid var(--line);overflow:hidden;}
+.gauge-fill{height:100%;border-radius:9px;transition:width .2s,background .2s;}
+.tbl-scroll{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;min-width:500px;}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:0 6px 8px;font-weight:600;}
+td{padding:4px 6px;vertical-align:middle;}
+tr.row-line td{border-bottom:1px solid var(--line);}
+.cell-in{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--amber);font-family:monospace;font-size:15px;padding:7px 8px;border-radius:6px;text-align:right;}
+.cell-in::placeholder{color:#5a5d60;}
+.cell-in:focus,.unit-in:focus{outline:2px solid var(--amber);outline-offset:0;border-color:var(--amber);}
+.unit-wrap{display:flex;align-items:center;gap:4px;}
+.unit-in{width:44px;background:var(--bg);border:1px solid var(--line);color:var(--amber);font-family:monospace;font-size:14px;padding:7px 5px;border-radius:6px;text-align:center;}
+.unit-sfx{font-size:12px;color:var(--muted);}
+.sub-wrap{text-align:right;}
+.sub-val{font-family:monospace;color:var(--text);font-size:14px;white-space:nowrap;}
+.sub-remain{font-size:11px;color:var(--green);min-height:14px;margin-top:1px;}
+.row-btns{display:flex;gap:5px;white-space:nowrap;}
+.toolbar{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px;}
+.btn{font-size:13px;font-weight:600;padding:9px 14px;border-radius:7px;cursor:pointer;border:1px solid var(--line);background:var(--panel-2);color:var(--text);}
+.btn:hover{border-color:var(--muted);}
+.btn.primary{background:var(--green-dim);color:var(--green);border-color:var(--green-dim);}
+.btn.del-btn{color:var(--red);border-color:var(--red-dim);}
+.btn.del-btn:hover{background:var(--red-dim);}
+.btn.fill-btn{color:var(--green);border-color:var(--green-dim);}
+.btn.fill-btn:hover{background:var(--green-dim);}
+.result-card{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;}
+.result-card.over{border-color:var(--red-dim);}
+.r-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+.r-num{font-weight:700;font-size:16px;color:var(--amber);min-width:22px;}
+.r-tag{font-size:10px;letter-spacing:.06em;padding:2px 7px;border-radius:4px;}
+.r-tag.aladdin{color:var(--amber);border:1px solid var(--amber-dim);}
+.r-tag.phone{color:var(--blue);border:1px solid var(--blue-dim);}
+.r-total{font-family:monospace;font-size:13px;color:var(--text);margin-left:auto;}
+.r-total.over{color:var(--red);}
+.r-pairs{font-family:monospace;font-size:14px;color:var(--amber);word-break:break-word;}
+.r-extra{font-family:monospace;font-size:13px;color:var(--green);margin-top:4px;}
+.banner{border-radius:8px;padding:9px 12px;font-size:13px;margin-bottom:10px;border:1px solid;}
+.banner.warn{background:var(--amber-dim);color:var(--amber);border-color:var(--amber-dim);}
+.banner.info{background:var(--blue-dim);color:var(--blue);border-color:var(--blue-dim);}
+.add-box{display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+.banner div+.add-box{margin-top:8px;}
+.add-lbl{font-size:14px;font-weight:700;color:var(--green);}
+.add-chip{font-family:monospace;font-size:17px;font-weight:700;color:var(--bg);background:var(--green);padding:3px 10px;border-radius:6px;}
+.sub-remain.add-row{display:inline-block;margin-top:4px;font-size:14px;font-weight:700;color:var(--bg);background:var(--green);padding:2px 8px;border-radius:5px;white-space:nowrap;}
+.add-note{flex-basis:100%;margin-top:6px;font-size:17px;font-weight:800;color:#FFFFFF;}
+.combo-scroll{max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding-right:4px;}
+.combo-scroll::-webkit-scrollbar{width:7px;}
+.combo-scroll::-webkit-scrollbar-track{background:var(--bg);}
+.combo-scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+.combo-item{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:8px 10px;}
+.combo-pairs{font-family:monospace;font-size:13px;color:var(--amber);}
+.combo-meta{font-size:11px;color:var(--muted);}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;z-index:1000;padding:16px;}
+.modal-bg.show{display:flex;}
+.modal-box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;max-width:400px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.5);}
+.modal-msg{font-size:14px;line-height:1.7;color:var(--text);margin-bottom:14px;white-space:pre-wrap;}
+.modal-acts{display:flex;justify-content:flex-end;gap:8px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div>
+    <div class="eyebrow">PACKING CALCULATOR</div>
+    <h1>重量計算 / ケース詰め計算機</h1>
+  </div>
+
+  <div class="tabs">
+    <button class="tab aladdin active" id="tabAladdin">アラジンEC<div class="tab-desc">玉数の多い順に詰める</div></button>
+    <button class="tab phone" id="tabPhone">電話注文<div class="tab-desc">ピッキングしやすい入れ方</div></button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">容量設定</div>
+    <div class="gauge-row">
+      <div class="case-wrap">
+        <label>ケース数</label>
+        <div class="case-stepper">
+          <button id="caseMinus">−</button>
+          <div class="case-num" id="caseNum">1</div>
+          <button id="casePlus">＋</button>
+        </div>
+      </div>
+      <div class="target-lbl">目標重量<br><b id="targetVal">14,000</b> g</div>
+      <div class="gauge-wrap">
+        <div class="gauge-lbls">
+          <span>合計 <span class="gauge-val" id="totalVal">0</span> g</span>
+          <span><span id="remainLbl">残り</span> <span class="gauge-val" id="remainVal">14,000</span> g</span>
+        </div>
+        <div class="gauge-track"><div class="gauge-fill" id="gaugeFill" style="width:0;background:var(--green);"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="resultPanel" style="display:none;">
+    <div class="panel-title" id="resultTitle">振り分け結果</div>
+    <div id="resultBanner" style="display:none;"></div>
+    <div id="resultList"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">入力 <span id="calcStatus" style="font-size:11px;color:var(--green);font-weight:500;text-transform:none;letter-spacing:0;"></span></div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr>
+          <th style="width:26px">#</th><th>重量(g)</th><th>個数(玉)</th><th>単位</th>
+          <th style="text-align:right">小計 / 残り</th><th></th>
+        </tr></thead>
+        <tbody id="rowsBody"></tbody>
+      </table>
+    </div>
+    <div class="toolbar">
+      <button class="btn" id="addRowBtn">＋ 行追加</button>
+      <span id="saveComboWrap"><button class="btn primary" id="saveComboBtn">★ 組合せ保存</button></span>
+      <button class="btn" id="clearBtn">入力クリア</button>
+    </div>
+    <div class="foot-note">全行に重量と個数を入力し、フォーカスを外すと自動計算します。個数→Enter→単位欄。単位欄は←→で1/5/10切替。Ctrl+Deleteで行削除。Escでリセット。</div>
+  </div>
+
+  <div class="panel" id="comboPanel">
+    <div class="panel-title">よく使う組合せ（電話注文用） <span id="comboCount" style="color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0;"></span>
+      <span id="syncStatus" style="font-size:11px;font-weight:500;text-transform:none;letter-spacing:0;margin-left:8px;"></span>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:var(--muted);">🔗 全員で共有中</span>
+      <button class="btn" id="refreshCombosBtn" style="font-size:12px;padding:6px 12px;">↻ 最新に更新</button>
+    </div>
+
+    <div id="comboList" class="combo-scroll"></div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" id="restoreCombosBtn" style="font-size:12px;padding:7px 12px;">初期42件を復元</button>
+    </div>
+    <div class="foot-note">10の倍数の玉数は5玉・10玉どちらの包装でも適用可能。5の倍数のみ（25玉など）は5玉包装専用。</div>
+  </div>
+  <div class="foot-note" style="text-align:center;margin-top:0">版 2026-10-29（組合せはスプレッドシートで共有）</div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal-box">
+    <div class="modal-msg" id="modalMsg"></div>
+    <div class="modal-acts" id="modalActs"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+const CASE_SIZE=14000;
+const UNIT_PRESETS=[1,5,10];
+const STORAGE_COMBOS='packing-combos-v3';
+// ===== 共有の保存先（GASのウェブアプリURL）=====
+// 全員で組合せを共有するときは、GASで発行された「ウェブアプリのURL」をここに貼り付けてGitHubに置く。空ならこのパソコンだけに保存
+const GAS_URL='https://script.google.com/macros/s/AKfycbwBQ_AkvxJCU-CPXpxnGClBg_ZjzZPFL1DlbZXCWYa6u0a-NMf1KEPd0dHbhhbRr3x_Uw/exec';
+const CIRCLED=['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
+const circled=n=>CIRCLED[n-1]||`(${n})`;
+
+let mode='aladdin';
+let state={cases:1,rows:[newRow(),newRow()],combos:[]};
+let autoCalcTimer=null;
+
+function newRow(){return{id:uid(),weight:'',count:'',unit:5};}
+function uid(){return 'r'+Math.random().toString(36).slice(2,8);}
+function num(v){const n=parseFloat(v);return isNaN(n)?0:n;}
+function sub(r){return num(r.weight)*num(r.count);}
+function total(){return state.rows.reduce((s,r)=>s+sub(r),0);}
+function target(){return state.cases*CASE_SIZE;}
+function floorUnit(val,w,unit){return Math.max(0,Math.floor(Math.floor(val/w)/unit)*unit);}
+
+// ── Modal ──────────────────────────────────────────────────────
+let modalEsc=null;
+function mkBtn(lbl,style){const b=document.createElement('button');b.className='btn';b.style.cssText=style||'';b.textContent=lbl;return b;}
+function openModal(msg,btns){
+  return new Promise(res=>{
+    const bg=document.getElementById('modalBg');
+    document.getElementById('modalMsg').textContent=msg;
+    const acts=document.getElementById('modalActs');
+    acts.innerHTML='';
+    btns.forEach(({lbl,style,val})=>{
+      const b=mkBtn(lbl,style);
+      b.onclick=()=>{bg.classList.remove('show');modalEsc=null;res(val);};
+      acts.appendChild(b);
+    });
+    bg.classList.add('show');
+    modalEsc=()=>{bg.classList.remove('show');modalEsc=null;res(null);};
+    acts.lastChild.focus();
+  });
+}
+const showAlert=msg=>openModal(msg,[{lbl:'OK',style:'background:var(--amber-dim);color:var(--amber);border-color:var(--amber-dim)',val:true}]);
+const showConfirm=(msg,ok)=>openModal(msg,[
+  {lbl:'キャンセル',val:false},
+  {lbl:ok,style:'background:var(--amber-dim);color:var(--amber);border-color:var(--amber-dim)',val:true}
+]);
+
+// ── Mode ───────────────────────────────────────────────────────
+function setMode(m){
+  mode=m;
+  document.getElementById('tabAladdin').classList.toggle('active',m==='aladdin');
+  document.getElementById('tabPhone').classList.toggle('active',m==='phone');
+  // 組合せ機能は電話注文モードのみ表示
+  const phoneOnly=m==='phone';
+  document.getElementById('comboPanel').style.display=phoneOnly?'':'none';
+  document.getElementById('saveComboWrap').style.display=phoneOnly?'':'none';
+  if(phoneOnly&&typeof refreshCombos==='function'&&state.combos)refreshCombos(true);
+  doCalc();
+}
+document.getElementById('tabAladdin').onclick=()=>setMode('aladdin');
+document.getElementById('tabPhone').onclick=()=>setMode('phone');
+
+// ── Gauge ──────────────────────────────────────────────────────
+function renderGauge(){
+  const t=total(),tgt=target(),rem=tgt-t;
+  document.getElementById('caseNum').textContent=state.cases;
+  document.getElementById('targetVal').textContent=tgt.toLocaleString();
+  document.getElementById('totalVal').textContent=t.toLocaleString();
+  // 超過時は「超過」表示に切り替える（手動でケース数を減らした場合など）
+  document.getElementById('remainLbl').textContent=rem<0?'超過':'残り';
+  const remEl=document.getElementById('remainVal');
+  remEl.textContent=Math.abs(rem).toLocaleString();
+  remEl.style.color=rem<0?'var(--red)':'';
+  const pct=Math.max(0,Math.min(100,t/tgt*100));
+  const fill=document.getElementById('gaugeFill');
+  fill.style.width=pct+'%';
+  fill.style.background=rem<0?'var(--red)':rem===0?'var(--green)':pct>85?'var(--amber)':'var(--green)';
+  updateRowRemains();
+}
+// 入力中だけケース数を自動で増やす（−ボタンで減らした後は、次に入力するまで維持）
+function autoGrowCases(){
+  const needed=Math.max(1,Math.ceil(total()/CASE_SIZE));
+  if(needed>state.cases)state.cases=needed;
+}
+function updateRowRemains(){
+  state.rows.forEach((r,i)=>{
+    const el=document.getElementById(`rrem-${i}`);
+    if(!el)return;
+    el.classList.remove('add-row');
+    // 個数が入力済みの場合は、追加提案があるときだけ「＋○玉 → △玉」を表示
+    if(num(r.count)>0){
+      const a=(state.added||{})[i];
+      if(a){el.textContent=`＋${a}玉 → ${num(r.count)+a}玉`;el.classList.add('add-row');}
+      else el.textContent='';
+      return;
+    }
+    const w=num(r.weight);
+    if(!w){el.textContent='';return;}
+    const others=state.rows.filter((_,j)=>j!==i).reduce((s,x)=>s+sub(x),0);
+    const space=target()-others;
+    const can=floorUnit(space,w,r.unit||5);
+    el.textContent=can>0?`あと${can}玉`:'';
+  });
+}
+
+// ── Rows ───────────────────────────────────────────────────────
+function renderRows(){
+  const body=document.getElementById('rowsBody');
+  body.innerHTML='';
+  state.rows.forEach((r,i)=>{
+    const tr=document.createElement('tr');tr.className='row-line';
+    const st=sub(r);
+    tr.innerHTML=`
+      <td style="color:var(--muted);font-size:13px">${i+1}</td>
+      <td><input class="cell-in" type="text" inputmode="decimal" placeholder="0" value="${r.weight}" data-row="${i}" data-field="weight"></td>
+      <td><input class="cell-in" type="text" inputmode="numeric" placeholder="0" value="${r.count}" data-row="${i}" data-field="count"></td>
+      <td><div class="unit-wrap"><input class="unit-in" type="text" inputmode="numeric" value="${r.unit}" data-row="${i}" data-field="unit"><span class="unit-sfx">玉</span></div></td>
+      <td><div class="sub-wrap"><div class="sub-val">${st?st.toLocaleString():'—'}</div><div class="sub-remain" id="rrem-${i}"></div></div></td>
+      <td><div class="row-btns">
+        <button class="btn fill-btn" data-action="fill" data-row="${i}" style="font-size:11px;padding:5px 7px">残りで計算</button>
+        <button class="btn del-btn" data-action="del" data-row="${i}" style="font-size:11px;padding:5px 7px">削除</button>
+      </div></td>`;
+    body.appendChild(tr);
+  });
+  wireRows();updateRowRemains();
+}
+function wireRows(){
+  document.querySelectorAll('.cell-in').forEach(el=>{
+    el.addEventListener('input',onCellInput);
+    el.addEventListener('keydown',onCellKey);
+    el.addEventListener('blur',()=>setTimeout(scheduleAutoCalc,50));
+  });
+  document.querySelectorAll('.unit-in').forEach(el=>{
+    el.addEventListener('input',onUnitInput);
+    el.addEventListener('keydown',onUnitKey);
+    el.addEventListener('blur',onUnitBlur);
+  });
+  document.querySelectorAll('[data-action]').forEach(btn=>{
+    if(btn.dataset.action==='fill')btn.addEventListener('click',()=>fillRow(+btn.dataset.row));
+    if(btn.dataset.action==='del')btn.addEventListener('click',()=>delRow(+btn.dataset.row));
+  });
+}
+function onCellInput(e){
+  const i=+e.target.dataset.row,f=e.target.dataset.field;
+  let v=e.target.value.replace(f==='weight'?/[^0-9.]/g:/[^0-9]/g,'');
+  e.target.value=v;state.rows[i][f]=v;
+  clearTimeout(autoCalcTimer);
+  document.getElementById('calcStatus').textContent='';
+  autoGrowCases();renderGauge();
+  const sv=document.querySelector(`#rowsBody tr:nth-child(${i+1}) .sub-val`);
+  if(sv)sv.textContent=sub(state.rows[i])?sub(state.rows[i]).toLocaleString():'—';
+  hideResult();
+}
+function onUnitInput(e){
+  const i=+e.target.dataset.row;
+  const v=e.target.value.replace(/[^0-9]/g,'');e.target.value=v;
+  const n=parseInt(v,10);if(!isNaN(n)&&n>=1)state.rows[i].unit=n;
+  clearTimeout(autoCalcTimer);updateRowRemains();
+  hideResult();
+}
+function onUnitBlur(e){
+  const i=+e.target.dataset.row;
+  if(!parseInt(e.target.value,10))e.target.value=String(state.rows[i].unit||5);
+  setTimeout(scheduleAutoCalc,50);
+}
+function focusCell(i,f){
+  const sel=f==='unit'?`.unit-in[data-row="${i}"]`:`input.cell-in[data-row="${i}"][data-field="${f}"]`;
+  const el=document.querySelector(sel);if(el){el.focus();try{el.select();}catch(x){}}
+}
+function onCellKey(e){
+  const i=+e.target.dataset.row,f=e.target.dataset.field,last=state.rows.length-1;
+  if(e.key==='ArrowUp'){e.preventDefault();if(i>0)focusCell(i-1,f);}
+  else if(e.key==='ArrowDown'){e.preventDefault();if(i<last)focusCell(i+1,f);}
+  else if(e.key==='ArrowLeft'&&e.target.selectionStart===0){e.preventDefault();if(f==='count')focusCell(i,'weight');else if(i>0)focusCell(i-1,'unit');}
+  else if(e.key==='ArrowRight'&&e.target.selectionStart===e.target.value.length){e.preventDefault();if(f==='weight')focusCell(i,'count');else focusCell(i,'unit');}
+  else if(e.key==='Enter'){e.preventDefault();if(f==='weight')focusCell(i,'count');else focusCell(i,'unit');}
+  else if(e.key==='Delete'&&(e.ctrlKey||e.metaKey)){e.preventDefault();delRow(i);}
+  else if(e.key==='Delete'){e.preventDefault();e.target.value='';state.rows[i][f]='';renderGauge();const sv=document.querySelector(`#rowsBody tr:nth-child(${i+1}) .sub-val`);if(sv)sv.textContent='—';updateRowRemains();hideResult();}
+}
+function onUnitKey(e){
+  const i=+e.target.dataset.row,last=state.rows.length-1,cur=state.rows[i].unit||5;
+  if(e.key==='ArrowUp'){e.preventDefault();if(i>0)focusCell(i-1,'unit');}
+  else if(e.key==='ArrowDown'){e.preventDefault();if(i<last)focusCell(i+1,'unit');}
+  else if(e.key==='ArrowRight'){e.preventDefault();const nx=UNIT_PRESETS.find(p=>p>cur);if(nx!==undefined){state.rows[i].unit=nx;e.target.value=String(nx);updateRowRemains();}}
+  else if(e.key==='ArrowLeft'){e.preventDefault();const pv=[...UNIT_PRESETS].reverse().find(p=>p<cur);if(pv!==undefined){state.rows[i].unit=pv;e.target.value=String(pv);updateRowRemains();}}
+  else if(e.key==='Enter'){e.preventDefault();if(i===last){addRow();setTimeout(()=>focusCell(i+1,'weight'),50);}else{focusCell(i+1,'weight');setTimeout(scheduleAutoCalc,50);}}
+  else if(e.key==='Delete'&&(e.ctrlKey||e.metaKey)){e.preventDefault();delRow(i);}
+  else if(e.key==='Delete'){e.preventDefault();state.rows[i].unit=5;e.target.value='5';updateRowRemains();}
+}
+function addRow(){state.rows.push(newRow());renderRows();renderGauge();}
+async function delRow(i){
+  const r=state.rows[i];
+  const lbl=(num(r.weight)||num(r.count))?`${i+1}行目（${r.weight||0}g×${r.count||0}）`:`${i+1}行目`;
+  const ok=await showConfirm(`${lbl}を削除しますか？`,'削除する');
+  if(!ok)return;
+  state.rows.splice(i,1);if(!state.rows.length)state.rows.push(newRow());
+  renderRows();renderGauge();hideResult();
+}
+function fillRow(i){
+  const r=state.rows[i];
+  const others=state.rows.filter((_,j)=>j!==i).reduce((s,x)=>s+sub(x),0);
+  const count=floorUnit(target()-others,num(r.weight),r.unit||5);
+  state.rows[i].count=String(count);
+  renderRows();renderGauge();doCalc();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  計算エンジン（Gemini不要）
+// ══════════════════════════════════════════════════════════════
+
+// 1行＝1商品（同じ重量でも行が違えば別商品として扱い、合算しない）
+function toItems(rows){
+  return rows.map(r=>({key:'row'+r.row,row:r.row,weight:r.weight,unit:r.unit,count:r.count}));
+}
+function cloneItems(items){return items.map(x=>({...x}));}
+function newBins(n){return Array.from({length:n},()=>({items:[],total:0}));}
+function binPut(bin,it,c){
+  if(c<=0)return;
+  const ex=bin.items.find(x=>x.key===it.key);
+  if(ex)ex.count+=c;else bin.items.push({key:it.key,row:it.row,weight:it.weight,unit:it.unit,count:c});
+  bin.total+=it.weight*c;
+}
+// 優先順位：①玉数が多い順 ②同数なら1袋総重量(重量×玉単位)が重い順 ③2000gは最低
+function priorityOrder(items){
+  return items.slice().sort((a,b)=>{
+    if(a.weight===2000&&b.weight!==2000)return 1;
+    if(b.weight===2000&&a.weight!==2000)return -1;
+    if(b.count!==a.count)return b.count-a.count;
+    return(b.weight*b.unit)-(a.weight*a.unit);
+  });
+}
+
+// ── アラジンEC：優先順に①から順番に詰める ──
+function packEC(items,caseCount,cap){
+  const bins=newBins(caseCount);let ok=true;
+  for(const it of priorityOrder(items)){
+    let left=it.count;
+    for(const bin of bins){
+      if(left<=0)break;
+      const t=Math.min(floorUnit(cap-bin.total,it.weight,it.unit),left);
+      if(t>0){binPut(bin,it,t);left-=t;}
+    }
+    if(left>0){ // 単位の倍数でない端数
+      for(const bin of bins){
+        if(left>0&&cap-bin.total>=it.weight*left){binPut(bin,it,left);left=0;}
+      }
+    }
+    if(left>0){binPut(bins[bins.length-1],it,left);ok=false;}
+  }
+  return{bins,ok};
+}
+
+// ── 電話注文：各ケースをできるだけ満杯に（同品目はなるべくまとめる） ──
+function gcd(a,b){while(b){[a,b]=[b,a%b];}return a;}
+function bestFill(rem,cap){
+  const W=rem.map(it=>Math.round(it.weight*10));
+  let g=Math.round(cap*10);W.forEach(w=>{g=gcd(g,w);});
+  const C=Math.round(cap*10)/g,INF=1e9;
+  let cost=new Array(C+1).fill(INF);cost[0]=0;
+  const picks=[];
+  rem.forEach((it,i)=>{
+    const w=W[i]/g,full=Math.floor(it.count/it.unit),r=it.count%it.unit;
+    const ch=[];for(let k=0;k<=full;k++)ch.push(k*it.unit);if(r>0)ch.push(it.count);
+    const nc=new Array(C+1).fill(INF),pk=new Int32Array(C+1).fill(-1);
+    for(let s=0;s<=C;s++){
+      if(cost[s]>=INF)continue;
+      for(const c of ch){
+        const s2=s+w*c;if(s2>C)break;
+        const cst=cost[s]+(c>0?1:0); // 使う品目数が少ない方を優先（ピッキングしやすさ）
+        if(cst<nc[s2]){nc[s2]=cst;pk[s2]=c;}
+      }
+    }
+    cost=nc;picks.push(pk);
+  });
+  let best=0;for(let s=C;s>=0;s--){if(cost[s]<INF){best=s;break;}}
+  const take=new Array(rem.length).fill(0);let s=best;
+  for(let i=rem.length-1;i>=0;i--){const c=picks[i][s];take[i]=c;s-=(W[i]/g)*c;}
+  return take;
+}
+function packDP(items,binCount,cap){
+  const rem=cloneItems(items).filter(x=>x.count>0);
+  const bins=newBins(binCount);
+  for(let b=0;b<binCount;b++){
+    const live=rem.filter(x=>x.count>0);if(!live.length)break;
+    const take=bestFill(live,cap);
+    live.forEach((it,i)=>{if(take[i]>0){binPut(bins[b],it,take[i]);it.count-=take[i];}});
+  }
+  const left=rem.filter(x=>x.count>0);
+  const ok=left.length===0;
+  if(!ok&&binCount>0)left.forEach(it=>binPut(bins[binCount-1],it,it.count));
+  return{bins,ok};
+}
+
+// 保存組合せの適用：組合せの玉数がその品目の玉単位の倍数なら使える
+function comboApply(combo,pool){
+  const used={},use=[];
+  for(const p of combo.pairs){
+    const c=pool.filter(it=>it.weight===p.weight&&p.count%it.unit===0&&it.count-(used[it.key]||0)>=p.count)
+      .sort((a,b)=>b.unit-a.unit);
+    if(!c.length)return null;
+    used[c[0].key]=(used[c[0].key]||0)+p.count;use.push({it:c[0],count:p.count});
+  }
+  return use;
+}
+function solvePhone(items,caseCount,cap,combos){
+  // 品目数が少ない組合せ（〇×〇）を先に試す → 同じ品目数なら総重量が重い順
+  const usable=(combos||[]).map(c=>({pairs:c.pairs,n:c.pairs.length,total:c.pairs.reduce((s,p)=>s+p.weight*p.count,0)}))
+    .filter(c=>c.total<=cap).sort((a,b)=>a.n-b.n||b.total-a.total);
+  const memo=new Map();let budget=150;
+  const key=(pool,k)=>pool.map(x=>x.key+':'+x.count).join(',')+'|'+k;
+  function rec(pool,binsLeft,start){
+    const mk=key(pool,binsLeft)+'|'+start;
+    if(memo.has(mk))return memo.get(mk);
+    let best=null;
+    if(binsLeft>0){
+      for(let ci=start;ci<usable.length&&budget>0;ci++){
+        const use=comboApply(usable[ci],pool);if(!use)continue;
+        budget--;
+        const next=cloneItems(pool);
+        use.forEach(u=>{next.find(x=>x.key===u.it.key).count-=u.count;});
+        const sub=rec(next,binsLeft-1,ci);
+        if(sub){
+          const bin={items:[],total:0,combo:true};use.forEach(u=>binPut(bin,u.it,u.count));
+          const cand={comboBins:[bin,...sub.comboBins],rest:sub.rest,np:usable[ci].n+sub.np};
+          // ①組合せで埋まるケースが多い方 ②同じなら使う組合せの品目数合計が少ない方
+          if(!best||cand.comboBins.length>best.comboBins.length
+            ||(cand.comboBins.length===best.comboBins.length&&cand.np<best.np))best=cand;
+        }
+      }
+    }
+    if(!best){const r=packDP(pool,binsLeft,cap);if(r.ok)best={comboBins:[],rest:r,np:0};}
+    memo.set(mk,best);return best;
+  }
+  const r=rec(cloneItems(items),caseCount,0);
+  if(r)return{bins:[...r.comboBins,...r.rest.bins],ok:true};
+  return packDP(items,caseCount,cap);
+}
+
+// ── 追加チェック（EC・電話共通）──
+// 全ケースの合計空き容量に、優先順で1包装ずつ足してみて、
+// 足した後にルール通り詰め直しても全部収まる場合だけ追加する。入らなくなるまで繰り返す。
+function tryAdditions(items,caseCount,cap,packFn){
+  let cur=cloneItems(items);const added={};let guard=0;
+  outer:while(guard++<80){
+    const space=caseCount*cap-cur.reduce((s,x)=>s+x.weight*x.count,0);
+    for(const it of priorityOrder(cur)){
+      if(it.weight*it.unit>space)continue;
+      const trial=cur.map(x=>x.key===it.key?{...x,count:x.count+it.unit}:{...x});
+      if(packFn(trial,caseCount,cap).ok){
+        cur=trial;added[it.key]=(added[it.key]||0)+it.unit;continue outer;
+      }
+    }
+    break;
+  }
+  return{items:cur,added};
+}
+
+function calculate(rows,caseCount,cap,mode,combos){
+  const items=toItems(rows);
+  const packFn=mode==='aladdin'?packEC:packDP;
+  const base=packFn(items,caseCount,cap);
+  let finalItems=items,added={};
+  if(base.ok){const r=tryAdditions(items,caseCount,cap,packFn);finalItems=r.items;added=r.added;}
+  const res=mode==='aladdin'?packEC(finalItems,caseCount,cap):solvePhone(finalItems,caseCount,cap,combos);
+  return{...res,added,items:finalItems};
+}
+
+// ── 自動補完（重量あり・個数なしの行） ──────────────────────
+function autoFillEmpty(){
+  const filled=[];
+  state.rows.forEach((r,i)=>{
+    if(num(r.weight)>0&&!num(r.count)){
+      const others=state.rows.filter((_,j)=>j!==i).reduce((s,x)=>s+sub(x),0);
+      const count=floorUnit(target()-others,num(r.weight),r.unit||5);
+      if(count>0){state.rows[i].count=String(count);filled.push(`${r.weight}g→${count}玉`);}
+    }
+  });
+  if(filled.length){renderRows();renderGauge();}
+  return filled;
+}
+
+// ── 計算トリガー ──────────────────────────────────────────────
+function scheduleAutoCalc(){
+  clearTimeout(autoCalcTimer);
+  const focused=document.activeElement;
+  if(focused&&(focused.classList.contains('cell-in')||focused.classList.contains('unit-in')))return;
+  const withWeight=state.rows.filter(r=>num(r.weight)>0);
+  if(!withWeight.length)return;
+  if(!withWeight.every(r=>num(r.count)>0))return;
+  document.getElementById('calcStatus').textContent='計算中…';
+  autoCalcTimer=setTimeout(doCalc,300);
+}
+
+function doCalc(){
+  clearTimeout(autoCalcTimer);
+  const filled=autoFillEmpty();
+  const rows=state.rows.map((r,i)=>({row:i+1,weight:num(r.weight),count:num(r.count),unit:r.unit||5}))
+    .filter(r=>r.weight>0&&r.count>0);
+  if(!rows.length)return;
+  const r=calculate(rows,state.cases,CASE_SIZE,mode,state.combos);
+  const addList=Object.entries(r.added).map(([k,v])=>{
+    const it=r.items.find(x=>x.key===k);return `${it.weight}g×${v}玉`;
+  });
+  // 入力行の「＋○玉 → △玉」表示用（行番号→追加玉数）
+  state.added={};
+  Object.entries(r.added).forEach(([k,v])=>{const it=r.items.find(x=>x.key===k);state.added[it.row-1]=v;});
+  updateRowRemains();
+  showResult({bins:r.bins,ok:r.ok,addList,filled},mode);
+}
+// 入力が変わったら結果と追加表示を消す
+function hideResult(){
+  document.getElementById('resultPanel').style.display='none';
+  if(state.added&&Object.keys(state.added).length){state.added={};updateRowRemains();}
+}
+
+function showResult(data,currentMode){
+  const panel=document.getElementById('resultPanel');
+  const title=document.getElementById('resultTitle');
+  const banner=document.getElementById('resultBanner');
+  const list=document.getElementById('resultList');
+  const tagClass=currentMode==='aladdin'?'aladdin':'phone';
+  const tagLabel=currentMode==='aladdin'?'アラジンEC':'電話注文';
+  title.textContent=tagLabel+' 振り分け結果';
+  list.innerHTML='';
+  const msgs=[];let warn=false;
+  if(!data.ok){
+    warn=true;
+    const need=Math.ceil(total()/CASE_SIZE);
+    msgs.push(need>state.cases
+      ?`⚠ 合計 ${total().toLocaleString()}g は ${state.cases}ケースに入りません（最低 ${need}ケース必要）。ケース数を増やしてください。`
+      :'⚠ このケース数では玉単位を守って収めることができません。ケース数を増やしてください。');
+  }
+  if(data.filled.length)msgs.push(`自動補完：${data.filled.join('、')}`);
+  banner.innerHTML='';
+  if(msgs.length){const d=document.createElement('div');d.style.whiteSpace='pre-wrap';d.textContent=msgs.join('\n');banner.appendChild(d);}
+  // 追加提案は「〇g×△玉」と注記を目立たせる
+  if(data.addList.length){
+    const box=document.createElement('div');box.className='add-box';
+    box.innerHTML=`<span class="add-lbl">＋追加できます</span>${data.addList.map(a=>`<span class="add-chip">${a}</span>`).join('')}<div class="add-note">※ 追加した場合の振り分けを表示しています</div>`;
+    banner.appendChild(box);
+  }
+  if(msgs.length||data.addList.length){banner.className='banner '+(warn?'warn':'info');banner.style.display='block';}
+  else banner.style.display='none';
+  data.bins.forEach((b,i)=>{
+    const over=b.total>CASE_SIZE;
+    const div=document.createElement('div');div.className='result-card'+(over?' over':'');
+    const pairs=b.items.slice().sort((x,y)=>x.weight-y.weight||x.row-y.row)
+      .map(p=>`${p.weight}g×${p.count}`).join(' / ');
+    const comboTag=b.combo?'<span class="r-tag" style="color:var(--green);border:1px solid var(--green-dim)">保存組合せ</span>':'';
+    div.innerHTML=`<div class="r-head"><span class="r-num">${circled(i+1)}</span><span class="r-tag ${tagClass}">${tagLabel}</span>${comboTag}<span class="r-total${over?' over':''}">${b.total.toLocaleString()}g${over?' (14000g超)':''}</span></div><div class="r-pairs">${pairs||'なし'}</div>`;
+    list.appendChild(div);
+  });
+  panel.style.display='block';
+  document.getElementById('calcStatus').textContent='';
+}
+
+// ── Combos ────────────────────────────────────────────────────
+const DEFAULT_COMBOS=[{"pairs":[{"weight":130,"count":50},{"weight":150,"count":50}]},{"pairs":[{"weight":200,"count":40},{"weight":120,"count":50}]},{"pairs":[{"weight":200,"count":10},{"weight":120,"count":100}]},{"pairs":[{"weight":200,"count":40},{"weight":150,"count":40}]},{"pairs":[{"weight":220,"count":50},{"weight":150,"count":20}]},{"pairs":[{"weight":150,"count":65},{"weight":170,"count":25}]},{"pairs":[{"weight":110,"count":80},{"weight":130,"count":40}]},{"pairs":[{"weight":160,"count":50},{"weight":120,"count":50}]},{"pairs":[{"weight":130,"count":80},{"weight":180,"count":20}]},{"pairs":[{"weight":130,"count":70},{"weight":140,"count":35}]},{"pairs":[{"weight":150,"count":60},{"weight":200,"count":25}]},{"pairs":[{"weight":230,"count":55},{"weight":130,"count":10}]},{"pairs":[{"weight":230,"count":10},{"weight":130,"count":90}]},{"pairs":[{"weight":150,"count":70},{"weight":140,"count":25}]},{"pairs":[{"weight":150,"count":80},{"weight":200,"count":10}]},{"pairs":[{"weight":180,"count":40},{"weight":170,"count":40}]},{"pairs":[{"weight":130,"count":50},{"weight":250,"count":30}]},{"pairs":[{"weight":200,"count":55},{"weight":150,"count":20}]},{"pairs":[{"weight":150,"count":85},{"weight":250,"count":5}]},{"pairs":[{"weight":200,"count":15},{"weight":220,"count":50}]},{"pairs":[{"weight":150,"count":40},{"weight":160,"count":50}]},{"pairs":[{"weight":130,"count":90},{"weight":150,"count":15}]},{"pairs":[{"weight":140,"count":30},{"weight":150,"count":65}]},{"pairs":[{"weight":120,"count":100},{"weight":130,"count":15}]},{"pairs":[{"weight":150,"count":45},{"weight":120,"count":60}]},{"pairs":[{"weight":120,"count":40},{"weight":130,"count":70}]},{"pairs":[{"weight":130,"count":80},{"weight":230,"count":15}]},{"pairs":[{"weight":160,"count":30},{"weight":200,"count":10},{"weight":120,"count":60}]},{"pairs":[{"weight":160,"count":40},{"weight":130,"count":40},{"weight":120,"count":20}]},{"pairs":[{"weight":160,"count":50},{"weight":130,"count":30},{"weight":200,"count":10}]},{"pairs":[{"weight":200,"count":30},{"weight":130,"count":40},{"weight":140,"count":20}]},{"pairs":[{"weight":200,"count":10},{"weight":130,"count":60},{"weight":140,"count":30}]},{"pairs":[{"weight":130,"count":100},{"weight":150,"count":5}]},{"pairs":[{"weight":160,"count":80},{"weight":120,"count":10}]},{"pairs":[{"weight":160,"count":80},{"weight":140,"count":5}]},{"pairs":[{"weight":110,"count":90},{"weight":130,"count":10},{"weight":180,"count":15}]},{"pairs":[{"weight":150,"count":85},{"weight":230,"count":5}]},{"pairs":[{"weight":200,"count":45},{"weight":220,"count":10},{"weight":140,"count":20}]},{"pairs":[{"weight":220,"count":30},{"weight":200,"count":30},{"weight":140,"count":10}]},{"pairs":[{"weight":150,"count":60},{"weight":160,"count":30}]},{"pairs":[{"weight":140,"count":30},{"weight":130,"count":75}]},{"pairs":[{"weight":120,"count":80},{"weight":140,"count":30}]}];
+function makeSig(pairs){return pairs.slice().sort((a,b)=>a.weight-b.weight||a.count-b.count).map(p=>`${p.weight}:${p.count}`).join('|');}
+
+function setSyncStatus(msg,color){
+  const el=document.getElementById('syncStatus');
+  if(el){el.textContent=msg;el.style.color=color||'var(--muted)';}
+}
+function shareReady(){return !!GAS_URL;}
+
+// GAS（スプレッドシート）から最新を取得 → {list, ver, fresh}  fresh＝まだ一度も保存されていない
+async function remoteRead(){
+  const res=await safeFetch(GAS_URL+(GAS_URL.includes('?')?'&':'?')+'action=load&_='+Date.now(),{cache:'no-store'});
+  if(!res.ok)throw new Error(`読み込みエラー HTTP ${res.status}：GASに接続できません。`);
+  const j=await res.json().catch(()=>null);
+  if(!j)throw new Error('読み込みエラー：GASの応答を読み取れません（デプロイの設定を確認してください）。');
+  const list=(j.data&&Array.isArray(j.data.combos))?j.data.combos.filter(c=>c&&Array.isArray(c.pairs)):[];
+  return{list,ver:Number(j.version)||0,fresh:!j.version};
+}
+// GASへ保存（ver は競合防止用の版番号）
+async function remoteWrite(list,ver){
+  // text/plain で送ると事前確認（CORS preflight）が起きない
+  const res=await safeFetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({action:'save',base:ver||0,data:{combos:list.map(c=>({pairs:c.pairs}))}})});
+  if(!res.ok)throw new Error(`書き込みエラー HTTP ${res.status}：GASに保存できません。`);
+  const j=await res.json().catch(()=>null);
+  if(j&&j.ok)return'ok';
+  if(j&&j.conflict)return'conflict';
+  throw new Error('書き込みエラー：'+((j&&j.error)||'GASに保存できません。'));
+}
+async function safeFetch(url,opt){
+  try{return await fetch(url,opt);}
+  catch(e){throw new Error('通信エラー：ネット接続、またはブラウザ／社内ネットワークでGoogleへの通信がブロックされています。');}
+}
+function toState(list){return list.map(c=>({id:uid(),pairs:c.pairs,createdAt:Date.now()}));}
+
+// 最新を読み込んで画面に反映（スプレッドシートの内容が正）
+async function refreshCombos(silent){
+  if(!shareReady()){setSyncStatus('共有未設定（この端末のみ保存）','var(--amber)');return;}
+  if(!silent)setSyncStatus('更新中…','var(--blue)');
+  let list,ver,fresh;
+  try{
+    ({list,ver,fresh}=await remoteRead());
+  }catch(e){
+    setSyncStatus('⚠ '+(e.message||'接続できません')+'（この端末の保存分を表示中）','var(--red)');
+    return;
+  }
+  if(fresh&&state.combos.length>0){
+    // 初回：スプレッドシートにまだ何も保存されていなければ、今ある組合せを登録
+    try{await remoteWrite(state.combos,ver);}
+    catch(e){
+      setSyncStatus('⚠ 読み込みOK・'+(e.message||'書き込み失敗'),'var(--red)');
+      renderCombos();return;
+    }
+  }else{
+    state.combos=toState(list);
+  }
+  saveCombosLocal();renderCombos();
+  setSyncStatus(`✓ 共有データ ${state.combos.length}件`,'var(--green)');
+}
+
+// 最新を読み込み → 変更を加えて → 保存（他の人の変更を消さないように毎回読み直す）
+async function updateShared(mutate){
+  if(!shareReady()){
+    state.combos=toState(mutate(state.combos.map(c=>({pairs:c.pairs}))));
+    saveCombosLocal();renderCombos();
+    setSyncStatus('共有未設定（この端末のみ保存）','var(--amber)');
+    return true;
+  }
+  setSyncStatus('保存中…','var(--blue)');
+  for(let i=0;i<3;i++){
+    try{
+      const{list,ver}=await remoteRead();
+      const next=mutate(list);
+      const r=await remoteWrite(next,ver);
+      if(r==='conflict')continue; // 同時編集 → 読み直して再試行
+      state.combos=toState(next);
+      saveCombosLocal();renderCombos();
+      setSyncStatus(`✓ 共有データ ${state.combos.length}件`,'var(--green)');
+      return true;
+    }catch(e){
+      setSyncStatus('⚠ 保存失敗','var(--red)');
+      showAlert('共有データへの保存に失敗しました。\n'+e.message);
+      return false;
+    }
+  }
+  showAlert('他の人と同時に保存が重なりました。もう一度お試しください。');
+  return false;
+}
+
+function loadCombos(){
+  try{
+    const raw=localStorage.getItem(STORAGE_COMBOS);
+    state.combos=raw?JSON.parse(raw):toState(DEFAULT_COMBOS);
+  }catch(e){state.combos=toState(DEFAULT_COMBOS);}
+  refreshCombos();
+}
+function saveCombosLocal(){
+  try{localStorage.setItem(STORAGE_COMBOS,JSON.stringify(state.combos));}catch(e){}
+}
+function unitLabel(count){
+  // 10の倍数なら5玉・10玉どちらでも可、5の倍数のみなら5玉専用
+  return count%10===0?'5玉/10玉':'5玉';
+}
+function renderCombos(){
+  const list=document.getElementById('comboList');
+  const count=document.getElementById('comboCount');
+  list.innerHTML='';
+  count.textContent=state.combos.length?`（${state.combos.length}件）`:'';
+  if(!state.combos.length){list.innerHTML='<div style="color:var(--muted);font-size:13px;padding:4px">保存された組合せはありません。</div>';return;}
+  state.combos.forEach(c=>{
+    const pairs=c.pairs.slice().sort((a,b)=>a.weight-b.weight)
+      .map(p=>`${p.weight}g×${p.count}（${unitLabel(p.count)}）`).join(' / ');
+    const tot=c.pairs.reduce((s,p)=>s+p.weight*p.count,0);
+    const div=document.createElement('div');div.className='combo-item';
+    div.innerHTML=`<div><div class="combo-pairs">${pairs}</div><div class="combo-meta">${tot.toLocaleString()}g</div></div><button class="btn del-btn" data-id="${c.id}" style="font-size:11px;padding:5px 7px">削除</button>`;
+    div.querySelector('button').addEventListener('click',()=>delCombo(c.id));
+    list.appendChild(div);
+  });
+}
+async function saveCombo(){
+  const pairs=state.rows.filter(r=>num(r.weight)>0&&num(r.count)>0).map(r=>({weight:num(r.weight),count:num(r.count)}));
+  if(!pairs.length){showAlert('重量と個数を入力してから保存してください。');return;}
+  const sig=makeSig(pairs);
+  let dup=false;
+  const ok=await updateShared(list=>{
+    if(list.some(c=>makeSig(c.pairs)===sig)){dup=true;return list;}
+    return[...list,{pairs}];
+  });
+  if(ok&&dup)showAlert('同じ組合せは既に登録されています。');
+}
+async function delCombo(id){
+  const target=state.combos.find(c=>c.id===id);
+  if(!target)return;
+  const ok=await showConfirm('この組合せを削除しますか？\n（全員の画面から削除されます）','削除する');
+  if(!ok)return;
+  const sig=makeSig(target.pairs);
+  await updateShared(list=>list.filter(c=>makeSig(c.pairs)!==sig));
+}
+
+// ── Reset ─────────────────────────────────────────────────────
+async function resetAll(){
+  const hasData=state.rows.some(r=>r.weight||r.count)||state.cases>1;
+  if(hasData){const ok=await showConfirm('入力をクリアし、ケース数を1に戻しますか？','リセット');if(!ok)return;}
+  clearTimeout(autoCalcTimer);
+  state.cases=1;state.rows=[newRow(),newRow()];
+  renderRows();renderGauge();
+  hideResult();
+  document.getElementById('calcStatus').textContent='';
+}
+
+// ── Wire ──────────────────────────────────────────────────────
+document.getElementById('casePlus').onclick=()=>{state.cases++;renderGauge();doCalc();};
+document.getElementById('caseMinus').onclick=()=>{if(state.cases>1){state.cases--;renderGauge();doCalc();}};
+document.getElementById('addRowBtn').onclick=addRow;
+document.getElementById('saveComboBtn').onclick=saveCombo;
+document.getElementById('refreshCombosBtn').addEventListener('click',()=>refreshCombos(false));
+document.getElementById('restoreCombosBtn').addEventListener('click',async()=>{
+  const ok=await showConfirm('初期の42件を共有データに追加します（重複は除く）。よろしいですか？','復元する');
+  if(!ok)return;
+  let added=0;
+  const done=await updateShared(list=>{
+    const next=list.slice();
+    DEFAULT_COMBOS.forEach(d=>{
+      if(!next.some(c=>makeSig(c.pairs)===makeSig(d.pairs))){next.push({pairs:d.pairs});added++;}
+    });
+    return next;
+  });
+  if(done)showAlert(`${added}件を復元しました。`);
+});
+document.getElementById('clearBtn').onclick=resetAll;
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  if(modalEsc){e.preventDefault();modalEsc();return;}
+  resetAll();
+});
+
+// ── Init ──────────────────────────────────────────────────────
+loadCombos();renderRows();renderGauge();renderCombos();setMode('aladdin');
+
+})();
+</script>
+</body>
+</html>
