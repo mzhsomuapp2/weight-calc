@@ -186,7 +186,7 @@ tr.row-line td{border-bottom:1px solid var(--line);}
     </div>
     <div class="foot-note">10の倍数の玉数は5玉・10玉どちらの包装でも適用可能。5の倍数のみ（25玉など）は5玉包装専用。</div>
   </div>
-  <div class="foot-note" style="text-align:center;margin-top:0">版 2026-10-29（EC も入力順表示）</div>
+  <div class="foot-note" style="text-align:center;margin-top:0">版 2026-10-30（平均：きれいに分かれる時は優先）</div>
 </div>
 
 <div class="modal-bg" id="modalBg">
@@ -577,11 +577,19 @@ function packAvg(items,caseCount,cap){
   }
   return{bins,ok};
 }
+// 各商品の玉数が全ケースで同じか（例：4ケースとも 10/10/70）
+function isPerfectSplit(bins){
+  const sig=b=>b.items.map(x=>x.key+':'+x.count).sort().join(',');
+  return bins.length>0&&bins.every(b=>sig(b)===sig(bins[0]));
+}
 // 平均の振り分けに近い保存組合せがあれば、そのケースは組合せを使う
 // 「近い」＝平均で分けたときの1ケース目と同じ商品の組み合わせで、各玉数の差が1包装以内
 function solveAvg(items,caseCount,cap,combos){
-  const usable=(combos||[]).filter(c=>c.pairs.reduce((s,p)=>s+p.weight*p.count,0)<=cap);
   let pool=cloneItems(items).filter(x=>x.count>0);
+  // 全ケースがまったく同じ中身にきれいに分かれるなら、保存組合せより優先してそのまま使う
+  const even=packAvg(pool,caseCount,cap);
+  if(even.ok&&isPerfectSplit(even.bins))return even;
+  const usable=(combos||[]).filter(c=>c.pairs.reduce((s,p)=>s+p.weight*p.count,0)<=cap);
   const comboBins=[];
   for(let n=caseCount;n>1;n--){
     const ref=packAvg(pool,n,cap);
