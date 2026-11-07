@@ -186,7 +186,7 @@ tr.row-line td{border-bottom:1px solid var(--line);}
     </div>
     <div class="foot-note">10の倍数の玉数は5玉・10玉どちらの包装でも適用可能。5の倍数のみ（25玉など）は5玉包装専用。</div>
   </div>
-  <div class="foot-note" style="text-align:center;margin-top:0">版 2026-10-30（平均：きれいに分かれる時は優先）</div>
+  <div class="foot-note" style="text-align:center;margin-top:0">版 2026-11-07（組合せ選び：分け方がまとまる方を優先）</div>
 </div>
 
 <div class="modal-bg" id="modalBg">
@@ -513,12 +513,26 @@ function comboApply(combo,pool){
   }
   return use;
 }
+// 商品の分かれ具合：各商品について「一番多く入っているケース以外」に入る玉数を合計（少ないほどまとまっている）
+function scatter(bins){
+  const m={};
+  bins.forEach(b=>b.items.forEach(x=>{(m[x.key]=m[x.key]||[]).push(x.count);}));
+  return Object.values(m).reduce((s,a)=>s+a.reduce((t,c)=>t+c,0)-Math.max(...a),0);
+}
 function solvePhone(items,caseCount,cap,combos){
   // 品目数が少ない組合せ（〇×〇）を先に試す → 同じ品目数なら総重量が重い順
   const usable=(combos||[]).map(c=>({pairs:c.pairs,n:c.pairs.length,total:c.pairs.reduce((s,p)=>s+p.weight*p.count,0)}))
     .filter(c=>c.total<=cap).sort((a,b)=>a.n-b.n||b.total-a.total);
   const memo=new Map();let budget=150;
   const key=(pool,k)=>pool.map(x=>x.key+':'+x.count).join(',')+'|'+k;
+  // ①組合せで埋まるケースが多い方 ②同じなら使う組合せの品目数合計が少ない方
+  // ③同じなら商品をややこしく分けない方（各商品の一番多いケース以外に入る玉数の合計が少ない方）
+  function better(c,b){
+    if(!b)return true;
+    if(c.comboBins.length!==b.comboBins.length)return c.comboBins.length>b.comboBins.length;
+    if(c.np!==b.np)return c.np<b.np;
+    return c.sc<b.sc;
+  }
   function rec(pool,binsLeft,start){
     const mk=key(pool,binsLeft)+'|'+start;
     if(memo.has(mk))return memo.get(mk);
@@ -532,14 +546,13 @@ function solvePhone(items,caseCount,cap,combos){
         const sub=rec(next,binsLeft-1,ci);
         if(sub){
           const bin={items:[],total:0,combo:true};use.forEach(u=>binPut(bin,u.it,u.count));
-          const cand={comboBins:[bin,...sub.comboBins],rest:sub.rest,np:usable[ci].n+sub.np};
-          // ①組合せで埋まるケースが多い方 ②同じなら使う組合せの品目数合計が少ない方
-          if(!best||cand.comboBins.length>best.comboBins.length
-            ||(cand.comboBins.length===best.comboBins.length&&cand.np<best.np))best=cand;
+          const cb=[bin,...sub.comboBins];
+          const cand={comboBins:cb,rest:sub.rest,np:usable[ci].n+sub.np,sc:scatter([...cb,...sub.rest.bins])};
+          if(better(cand,best))best=cand;
         }
       }
     }
-    if(!best){const r=packDP(pool,binsLeft,cap);if(r.ok)best={comboBins:[],rest:r,np:0};}
+    if(!best){const r=packDP(pool,binsLeft,cap);if(r.ok)best={comboBins:[],rest:r,np:0,sc:scatter(r.bins)};}
     memo.set(mk,best);return best;
   }
   const r=rec(cloneItems(items),caseCount,0);
