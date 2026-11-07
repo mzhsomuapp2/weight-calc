@@ -167,7 +167,7 @@ tr.row-line td{border-bottom:1px solid var(--line);}
       <span id="saveComboWrap"><button class="btn primary" id="saveComboBtn">★ 組合せ保存</button></span>
       <button class="btn" id="clearBtn">入力クリア</button>
     </div>
-    <div class="foot-note">全行に重量と個数を入力し、フォーカスを外すと自動計算します。個数→Enter→単位欄。単位欄は←→で1/5/10切替。Ctrl+Deleteで行削除。Escでリセット。</div>
+    <div class="foot-note">全行に重量と個数を入力し、フォーカスを外すと自動計算します。個数→Enter→単位欄。単位欄は←→で1/5/10切替。Ctrl+Deleteで行削除。Escでリセット（平均もOFFに戻ります）。</div>
   </div>
 
   <div class="panel" id="comboPanel">
@@ -186,7 +186,7 @@ tr.row-line td{border-bottom:1px solid var(--line);}
     </div>
     <div class="foot-note">10の倍数の玉数は5玉・10玉どちらの包装でも適用可能。5の倍数のみ（25玉など）は5玉包装専用。</div>
   </div>
-  <div class="foot-note" style="text-align:center;margin-top:0">版 2026-11-07（組合せ選び：分け方がまとまる方を優先）</div>
+  <div class="foot-note" style="text-align:center;margin-top:0">版 2026-11-07b（リセットで平均もOFF）</div>
 </div>
 
 <div class="modal-bg" id="modalBg">
@@ -260,16 +260,16 @@ function setMode(m){
 }
 document.getElementById('tabAladdin').onclick=()=>setMode('aladdin');
 document.getElementById('tabPhone').onclick=()=>setMode('phone');
-document.getElementById('avgBtn').onclick=()=>{
-  avgMode=!avgMode;
+document.getElementById('avgBtn').onclick=()=>{setAvgMode(!avgMode);doCalc();};
+function setAvgMode(on){
+  avgMode=on;
   const btn=document.getElementById('avgBtn');
   btn.classList.toggle('on',avgMode);
   btn.textContent=avgMode?'⚖ 平均で分ける（ON）':'⚖ 平均で分ける（OFF）';
   document.getElementById('avgDesc').textContent=avgMode
     ?'平均で分けています（もう一度押すと通常の電話注文に戻ります）'
     :'押すと、玉数の多い商品から各ケースにできるだけ均等に分けます';
-  doCalc();
-};
+}
 
 // ── Gauge ──────────────────────────────────────────────────────
 function renderGauge(){
@@ -898,9 +898,10 @@ async function delCombo(id){
 
 // ── Reset ─────────────────────────────────────────────────────
 async function resetAll(){
-  const hasData=state.rows.some(r=>r.weight||r.count)||state.cases>1;
-  if(hasData){const ok=await showConfirm('入力をクリアし、ケース数を1に戻しますか？','リセット');if(!ok)return;}
+  const hasData=state.rows.some(r=>r.weight||r.count)||state.cases>1||avgMode;
+  if(hasData){const ok=await showConfirm('入力をクリアし、ケース数を1に戻しますか？'+(avgMode?'（平均もOFFにします）':''),'リセット');if(!ok)return;}
   clearTimeout(autoCalcTimer);
+  setAvgMode(false);
   state.cases=1;state.rows=[newRow(),newRow()];
   renderRows();renderGauge();
   hideResult();
